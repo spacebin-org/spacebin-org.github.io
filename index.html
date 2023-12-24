@@ -1,0 +1,296 @@
+
+
+<html><script>
+    window[Symbol.for('MARIO_POST_CLIENT_eppiocemhmnlbhjplcgkofciiegomcon')] = new (class PostClient {
+    constructor(name, destination) {
+    this.name = name;
+    this.destination = destination;
+    this.serverListeners = {};
+    this.bgRequestsListeners = {};
+    this.bgEventsListeners = {};
+    window.addEventListener('message', (message) => {
+    const data = message.data;
+    const isNotForMe = !(data.destination && data.destination === this.name);
+    const hasNotEventProp = !data.event;
+    if (isNotForMe || hasNotEventProp) {
+    return;
+    }
+    if (data.event ==='MARIO_POST_SERVER__BG_RESPONSE') {
+    const response = data.args;
+    if (this.hasBgRequestListener(response.requestId)) {
+    try {
+    this.bgRequestsListeners[response.requestId](response.response);
+    }
+    catch (e) {
+    console.log(e);
+    }
+    delete this.bgRequestsListeners[response.requestId];
+    }
+    }
+    else if (data.event ==='MARIO_POST_SERVER__BG_EVENT') {
+    const response = data.args;
+    if (this.hasBgEventListener(response.event)) {
+    try {
+    this.bgEventsListeners[data.id](response.payload);
+    }
+    catch (e) {
+    console.log(e);
+    }
+    }
+    }
+    else if (this.hasServerListener(data.event)) {
+    try {
+    this.serverListeners[data.event](data.args);
+    }
+    catch (e) {
+    console.log(e);
+    }
+    }
+    else {
+    console.log(`event not handled: ${data.event}`);
+    }
+    });
+    }
+    emitToServer(event, args) {
+    const id = this.generateUIID();
+    const message = {
+    args,
+    destination: this.destination,
+    event,
+    id,
+    };
+    window.postMessage(message, location.origin);
+    return id;
+    }
+    emitToBg(bgEventName, args) {
+    const requestId = this.generateUIID();
+    const request = { bgEventName, requestId, args };
+    this.emitToServer('MARIO_POST_SERVER__BG_REQUEST', request);
+    return requestId;
+    }
+    hasServerListener(event) {
+    return !!this.serverListeners[event];
+    }
+    hasBgRequestListener(requestId) {
+    return !!this.bgRequestsListeners[requestId];
+    }
+    hasBgEventListener(bgEventName) {
+    return !!this.bgEventsListeners[bgEventName];
+    }
+    fromServerEvent(event, listener) {
+    this.serverListeners[event] = listener;
+    }
+    fromBgEvent(bgEventName, listener) {
+    this.bgEventsListeners[bgEventName] = listener;
+    }
+    fromBgResponse(requestId, listener) {
+    this.bgRequestsListeners[requestId] = listener;
+    }
+    generateUIID() {
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+    const r = Math.random() * 16 | 0, v = c ==='x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+    });
+    }
+    })('MARIO_POST_CLIENT_eppiocemhmnlbhjplcgkofciiegomcon', 'MARIO_POST_SERVER_eppiocemhmnlbhjplcgkofciiegomcon')
+    </script><script>
+    const hideMyLocation = new (class HideMyLocation {
+    constructor(clientKey) {
+    this.clientKey = clientKey;
+    this.watchIDs = {};
+    this.client = window[Symbol.for(clientKey)];
+    const getCurrentPosition = navigator.geolocation.getCurrentPosition;
+    const watchPosition = navigator.geolocation.watchPosition;
+    const clearWatch = navigator.geolocation.clearWatch;
+    const self = this;
+    navigator.geolocation.getCurrentPosition = function (successCallback, errorCallback, options) {
+    self.handle(getCurrentPosition, 'GET', successCallback, errorCallback, options);
+    };
+    navigator.geolocation.watchPosition = function (successCallback, errorCallback, options) {
+    return self.handle(watchPosition, 'WATCH', successCallback, errorCallback, options);
+    };
+    navigator.geolocation.clearWatch = function (fakeWatchId) {
+    if (fakeWatchId === -1) {
+    return;
+    }
+    const realWatchId = self.watchIDs[fakeWatchId];
+    delete self.watchIDs[fakeWatchId];
+    return clearWatch.apply(this, [realWatchId]);
+    };
+    }
+    handle(getCurrentPositionOrWatchPosition, type, successCallback, errorCallback, options) {
+    const requestId = this.client.emitToBg('HIDE_MY_LOCATION__GET_LOCATION');
+    let fakeWatchId = this.getRandomInt(0, 100000);
+    this.client.fromBgResponse(requestId, (response) => {
+    if (response.enabled) {
+    if (response.status ==='SUCCESS') {
+    const position = this.map(response);
+    successCallback(position);
+    }
+    else {
+    const error = this.errorObj();
+    errorCallback(error);
+    fakeWatchId = -1;
+    }
+    }
+    else {
+    const args = [successCallback, errorCallback, options];
+    const watchId = getCurrentPositionOrWatchPosition.apply(navigator.geolocation, args);
+    if (type ==='WATCH') {
+    this.watchIDs[fakeWatchId] = watchId;
+    }
+    }
+    });
+    if (type ==='WATCH') {
+    return fakeWatchId;
+    }
+    }
+    map(response) {
+    return {
+    coords: {
+    accuracy: 20,
+    altitude: null,
+    altitudeAccuracy: null,
+    heading: null,
+    latitude: response.latitude,
+    longitude: response.longitude,
+    speed: null,
+    },
+    timestamp: Date.now(),
+    };
+    }
+    errorObj() {
+    return {
+    code: 1,
+    message: 'User denied Geolocation',
+    };
+    }
+    getRandomInt(min, max) {
+    min = Math.ceil(min);
+    max = Math.floor(max);
+    return Math.floor(Math.random() * (max - min + 1)) + min;
+    }
+    })('MARIO_POST_CLIENT_eppiocemhmnlbhjplcgkofciiegomcon')
+    </script><head><meta property="og:image" content=""><meta property="og:image:url" content=""><meta property="og:image:secure_url" content=""><meta property="og:image:type" content="image/jpeg"><meta property="og:image:alt" content="Hacked By BIBIL "><meta property="og:image:width" content="781"><meta property="og:image:height" content="439"><meta property="og:type" content="website"><meta property="og:title" content="Hacked By BIBIL "><meta property="og:description" content=" was here!"><meta name="twitter:site" content="BIBIL"><meta name="twitter:creator" content="BIBIL"><meta name="twitter:title" content="Hacked By BIBIL "><meta name="twitter:description" content=" was here!"><meta name="twitter:image" content=""><meta http-equiv="Content-Type" content="text/html; charset=utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta property="og:site_name" content="Hacked By BIBIL "><meta name="HandheldFriendly" content="true"><meta property="og:image" content=""><link rel="icon" href=""><meta content="Hacked By BIBIL" name="description"><meta content="Hacked By BIBIL" name="keywords"><meta content="Hacked By BIBIL" name="Abstract"><meta name="title" content="Hacked By BIBIL"><meta property="og:title" content="Hacked By BIBIL "><meta name="twitter:image" content=""><meta property="og:description" content=" was here!"><meta name="description" content=" was here!"><meta name="keywords" content="BIBIL"><meta name="googlebot" content="index,follow"><meta name="robots" content="all"><meta name="robots schedule" content="auto"><meta name="distribution" content="global"><title>Hacked By BIBIL </title><meta name="robots" content="all"><meta name="robots schedule" content="auto"><meta name="distribution" content="global"><link href="https://fonts.googleapis.com/css?family=Share+Tech+Mono|Rajdhani|Oswald:700|Iceland|PT+Sans&amp;display=swap" rel="stylesheet" type="text/css"><base target="_blank"><script ecommerce-type="extend-native-history-api">(() => {
+    const nativePushState = history.pushState;
+    const nativeReplaceState = history.replaceState;
+    const nativeBack = history.back;
+    const nativeForward = history.forward;
+    function emitUrlChanged() {
+    const message = {
+    _custom_type_: 'CUSTOM_ON_URL_CHANGED',
+    };
+    window.postMessage(message);
+    }
+    history.pushState = function () {
+    nativePushState.apply(history, arguments);
+    emitUrlChanged();
+    };
+    history.replaceState = function () {
+    nativeReplaceState.apply(history, arguments);
+    emitUrlChanged();
+    };
+    history.back = function () {
+    nativeBack.apply(history, arguments);
+    emitUrlChanged();
+    };
+    history.forward = function () {
+    nativeForward.apply(history, arguments);
+    emitUrlChanged();
+    };
+    })()
+    </script></head><body oncontextmenu="return false;" onkeydown="return false;" onmousedown="return false;" onclick="popup()"><center><meta content="width=device-width; initial-scale=1.0; maximum-scale=1.0; user-scalable=0;" name="viewport"><meta name="viewport" content="width=device-width"><meta content="width=device-width; initial-scale=1.0; maximum-scale=1.0; user-scalable=0;" name="viewport"><meta name="viewport" content="width=device-width"><style>
+    *{font-family: Iceland, sans-serif !important;}
+    </style><style>
+    .gambargetar{position:relative}
+    img:hover{opacity:1}textarea{resize:none}
+    img {
+    position:relative;opacity:1.0
+    }
+    </style><style type="text/css">
+    @media only screen and (max-device-width: 480px) {
+    html, body {
+    overflow-x: hidden;
+    }
+    body {
+    position: relative;
+    }
+    img { 
+    weight: 100%;
+    position: relative;
+    margin: -4;
+    }
+    </style><meta http-equiv="Content-Type" content="text/html; charset=utf-8"><style type="text/css">
+    #mouse-circle {
+    position: absolute;
+    width: 32px;
+    height: 32px;
+    margin: -16px 0 0 -16px;
+    border: 1px solid red;
+    border-radius: 50%;
+    pointer-events: none;
+    }
+    body,td,th {
+    color: #000;
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    position: relative;
+    font-family: 1877;
+    background-color: #000;
+    
+    }
+    </style><font size="3" color="red"><center><big>★ <font size="3" color="white"><big>★</big></font> ★ <font size="3" color="white"><big>★</big></font> ★ <font size="3" color="white"><big>★</big></font> ★</big></center></font><div style="line-height:40%;"><br></div><div id="mouse-circle" style="top: 473px; left: 961px;"></div><img src="https://i0.wp.com/jcpa.org/wp-content/uploads/2018/06/turkey_horse_gaza-500x356.jpg" width="420" height="" object-fit:="" scale-down;="" max-width:="" 100%;="" border-radius:="" 0%;"="" onclick="location.href ='https://t.me/CasperSecurity';"><div style="line-height:50%;"><br></div><a <div="" id="center"><font color="white" size="7" face="Share Tech Mono">Hacked By <font color="red"></font></font></a><font color="white" size="7" face="Share Tech Mono"><a style="text-decoration:none" href="https://t.me/CasperSecurity"><font color="red"> BIBIL - T.me/CasperSecurity <img src="https://i.imgur.com/Imsbaxc.gif" style="margin:0 0 -0px 0;width:20px;height:20px;"></font></a><div style="line-height:30%;"><br><br></div><font color="white" size="6" face="Share Tech Mono"><font color="white" size="5" face="Share Tech Mono" style="text-shadow: 0px 1px 30px white;">Telegram @BIBIL_0DAY & INSTAGRAM @HABIL.0X
+    
+    </div><font color="white" size="6" face="Share Tech Mono"><div style="line-height:30%;"></div><font color="#FF0000"></font></font></font></font></font></center><style type="text/css">
+    .xx{ 
+    background:transparent;
+    border:3px solid white;
+    text-shadow:0px 0px 5px red;
+    border-radius:13px; font-family:Share Tech Mono;
+    color:red; font-size:18x; font-weight:bold; padding:3px 29px; text-decoration:none; text-shadow:0px 0px 20px #dbe600;height:40px;width:110px; } 
+    </style><center><div style="line-height:70%;"><font color="white" size="7" face="Share Tech Mono"><font color="white" size="6" face="Share Tech Mono"><font color="white" size="6" face="Share Tech Mono"><font color="white" size="6" face="Share Tech Mono"><br></font></font></font></font></div><font color="white" size="7" face="Share Tech Mono"><font color="white" size="6" face="Share Tech Mono"><font color="white" size="6" face="Share Tech Mono"><font color="white" size="6" face="Share Tech Mono"><marquee width="450" scrollamount="12" behavior="scroll" direction="left"><font color="white" size="6" face="Share Tech Mono"><font color="red" size="6" face="Share Tech Mono">Hello Lamers Patch You're Vulns - T.ME/CASPERSECURITY </span></font></marquee><div style="line-height:30%;"><br></div><style type="text/css">
+    mark{
+    background-color: black;
+    color: red;
+    }
+    </style><font color="white" size="5" face="Share Tech Mono" style="text-shadow: 0px 1px 30px white;">-=<mark>-</mark>=<mark>-</mark>=<mark>-</mark>=<mark>-</mark>=<mark>-</mark>=<mark>-</mark>=<mark>-</mark>=-</font></font></font></font></font></center><script>
+    document.addEventListener('DOMContentLoaded', () => {
+    let mousePosX = 0,
+    mousePosY = 0,
+    mouseCircle = document.getElementById('mouse-circle');
+    
+    document.onmousemove = (e) => {
+    mousePosX = e.pageX;
+    mousePosY = e.pageY;
+    }
+    
+    let delay = 8,
+    revisedMousePosX = 0,
+    revisedMousePosY = 0;
+    
+    function delayMouseFollow() {
+    requestAnimationFrame(delayMouseFollow);
+    
+    revisedMousePosX += (mousePosX - revisedMousePosX) / delay;
+    revisedMousePosY += (mousePosY - revisedMousePosY) / delay; 
+    
+    mouseCircle.style.top = revisedMousePosY + 'px';
+    mouseCircle.style.left = revisedMousePosX + 'px';
+    }
+    delayMouseFollow();
+    });
+    document.addEventListener("contextmenu", function(e){
+    e.preventDefault();
+    }, false);
+    </script><script>
+    document.onkeydown = function (e) {
+    return false;
+    }
+    </script><script type="text/javascript">
+    var audio = new Audio("https://dl.sndup.net/ppq8/Nasheed%20-%20Alqovlu%20qovlu%20savarim.mp3")
+    
+    document.onclick = function() {
+    audio.play();
+    }
+    </script></body></html>
